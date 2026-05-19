@@ -427,3 +427,95 @@ El sistema responde en **29-75ms** post-warm-up — 27x por debajo del SLA de 2s
 - **Positivas:** los hallazgos de Suite 1 (sinónimos no reconocidos) son accionables directamente en `buildDocument()` sin cambiar el modelo.
 - **Negativas:** el tiempo total de evaluación aumentó porque las suites de IA generan embeddings adicionales. Con el catálogo actual (20 propiedades) el impacto es mínimo; con catálogos más grandes puede necesitar caché de embeddings entre suites.
 - **Deuda técnica:** el umbral `SCORE_MAX_OUT_OF_DOMAIN` (Suite 3) debe calibrarse empíricamente con más queries fuera de dominio antes de usarse como gate de CI definitivo.
+
+---
+
+## ADR-006 — BVA de tokens aplicada a documentos de ChromaDB, no a queries del usuario
+
+**Fecha:** 2026-05-19
+**Estado:** Aceptada
+**Autor:** QA / Evaluación de modelos
+
+### Contexto
+
+La Suite 6 fue inicialmente diseñada como *Boundary Value Analysis* sobre las **queries del usuario**: construía textos artificiales de 1, 185, 196, 200 y 400 palabras usando relleno neutro ("casa casa casa…") y medía si la búsqueda semántica degradaba al acercarse al límite de 256 tokens del modelo `all-MiniLM-L6-v2`.
+
+Al ejecutar la suite se detectó que esa aproximación tiene un **problema de validez**:
+
+| Observación | Consecuencia |
+|---|---|
+| Las queries reales de usuarios tienen < 30 palabras (~39 tokens) | Los puntos BV2–BV5 testean escenarios que no ocurren en producción |
+| El relleno "casa×185" desplaza el vector más que la intención original | BV2 falló, pero no por un bug del sistema sino por el diseño artificial del test |
+| La degradación de BV6 fue solo 4.4% con un escenario no realista | El hallazgo no tiene impacto accionable para este caso de uso |
+
+### Decisión
+
+**Redirigir la Suite 6 para aplicar BVA sobre los documentos que `buildDocument()` genera y que se indexan en ChromaDB**, ya que ese es el lado real de la tubería donde la truncación puede ocurrir de forma silenciosa.
+
+#### Justificación técnica
+
+```
+Flujo real del sistema:
+
+  propiedades.json
+        │
+        ▼
+  buildDocument(p)          ← texto largo, puede acercarse a 256 tokens
+        │
+        ▼
+  embed(doc)                ← all-MiniLM-L6-v2 trunca si > 256 tokens
+        │                      SIN LANZAR EXCEPCIÓN
+        ▼
+  ChromaDB                  ← vector almacenado representa solo los
+                               primeros ~254 tokens del documento
+
+  query del usuario         ← promedio < 40 tokens, NO hay riesgo
+        │
+        ▼
+  embed(query)
+        │
+        ▼
+  cosine similarity
+```
+
+Una descripción enriquecida (descripción libre + título + características + precio + subsidios + piso) puede alcanzar fácilmente 100-150 tokens hoy. Si en el futuro se añaden campos como historial de reformas, certificados, o descripciones de barrio, el documento puede cruzar el límite **sin que ningún error lo indique**.
+
+### Zonas BVA definidas
+
+| Zona | Rango | Comportamiento | Gate CI |
+|---|---|---|---|
+| SEGURA | ≤ 150 tokens | Sin riesgo actual ni futuro | ✓ PASS |
+| ADVERTENCIA | 151–200 tokens | Margen reducido; evaluar antes de añadir campos | ⚠ WARNING |
+| RIESGO | 201–254 tokens | Supera umbral seguro; embedding representa texto incompleto | ✗ FAIL |
+| TRUNCACIÓN | ≥ 255 tokens | Modelo trunca activamente; último tramo del documento invisible | ✗ FAIL |
+
+El umbral de fallo en CI se fija en **200 tokens** (≈ 77% del límite), dejando un margen de ~56 tokens para enriquecimientos futuros sin regresión silenciosa.
+
+### Implementación
+
+- `buildDocumentLocal()` — réplica local de `buildDocument()` en `evaluate.ts` para que la suite sea autónoma (no requiere ChromaDB en ejecución).
+- `approxTokens(text)` — aproximación `palabras × 1.3` (factor WordPiece para español).
+- Lee `data/seeds/propiedades.json` directamente; ejecuta análisis sobre los 20 documentos actuales.
+- Imprime tabla de zonas BVA y falla si cualquier documento supera 200 tokens.
+
+### Primera ejecución (catálogo actual: 20 propiedades)
+
+| Métrica | Valor |
+|---|---|
+| Tokens mínimos | ~83 t |
+| Tokens promedio | ~95 t |
+| Tokens máximos | ~115 t |
+| Docs en zona SEGURA (≤150 t) | 20 / 20 |
+| Docs en zona ADVERTENCIA | 0 / 20 |
+| Docs en zona RIESGO / TRUNCACIÓN | 0 / 20 |
+| Resultado CI | **PASS** |
+
+### Deuda técnica introducida
+
+`buildDocumentLocal()` en `evaluate.ts` es una copia de `buildDocument()` en `seed-chromadb.ts`. Si se modifica una función sin actualizar la otra, la suite medirá tokens de un documento distinto al que se indexa. Acción futura recomendada: extraer `buildDocument()` a `@propia/shared` y exportarla para que ambos archivos la importen.
+
+### Consecuencias
+
+- **Positiva:** la suite ahora protege contra una clase de regresión silenciosa real: un enriquecimiento futuro de `buildDocument()` que supere el límite del modelo solo se detectaría en producción si no existiera este test.
+- **Positiva:** la tabla de zonas BVA da visibilidad sobre cuánto margen queda disponible para futuros campos, sin esperar a que ocurra el problema.
+- **Negativa:** la suite original (queries del usuario) se eliminó. Si en el futuro se expone un endpoint de búsqueda con queries de texto libre de mayor longitud (ej. búsqueda por párrafo), se deberá implementar truncado explícito en la capa API antes de llegar al modelo.

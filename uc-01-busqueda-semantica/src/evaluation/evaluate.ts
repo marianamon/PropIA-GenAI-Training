@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { semanticSearch, type SearchResult } from '../search.js';
 import { embed } from '@propia/embeddings';
+import type { Propiedad } from '@propia/shared/propiedad';
 
 // -----------------------------------------------------------------------
 // Golden dataset: 10 queries con las propiedades que DEBERIAN aparecer.
@@ -500,6 +503,129 @@ async function testLatency(): Promise<number> {
 }
 
 // -----------------------------------------------------------------------
+// SUITE 6 — Valores límite por tokens en DOCUMENTOS de ChromaDB (BVA)
+//
+// Contexto: all-MiniLM-L6-v2 trunca silenciosamente a 256 tokens.
+// El riesgo real NO está en las queries del usuario (< 30 palabras en
+// promedio) sino en los DOCUMENTOS que buildDocument() genera y se
+// indexan en ChromaDB. Si un documento excede el límite, su embedding
+// no representará la parte final del texto — sin error visible.
+//
+// Umbral seguro: 200 tokens (~77% del límite de 256) para absorber
+// futuros enriquecimientos del catálogo sin una regresión silenciosa.
+//
+// Zonas BVA:
+//   SEGURA       ≤ 150 tokens
+//   ADVERTENCIA   151–200 tokens   (⚠ próximo al umbral)
+//   RIESGO        201–254 tokens   (✗ supera umbral seguro)
+//   TRUNCACIÓN   ≥ 255 tokens      (✗ el modelo corta el texto)
+//
+// La función buildDocumentLocal() es una réplica de buildDocument() de
+// scripts/seed-chromadb.ts para que la suite sea autónoma (no requiere
+// ChromaDB en ejecución). Ambas DEBEN mantenerse sincronizadas.
+// -----------------------------------------------------------------------
+
+const TOKEN_SAFE_LIMIT = 200;
+const TOKEN_WARN_LIMIT = 150;
+const TOKEN_MODEL_LIMIT = 254; // 256 − [CLS] − [SEP]
+// Factor de conversión palabra→token para español con WordPiece (BERT-like).
+// Palabras cortas (≤4 chars) ~ 1 token; largas (>8 chars) ~ 1.5-2 tokens.
+// Promedio empírico para texto inmobiliario en español: ~1.3.
+const WORDS_TO_TOKENS = 1.3;
+
+function approxTokens(text: string): number {
+  return Math.round(text.trim().split(/\s+/).length * WORDS_TO_TOKENS);
+}
+
+// Réplica local de buildDocument() de scripts/seed-chromadb.ts.
+// ⚠ Si se modifica buildDocument() allá, actualizar esta función también.
+function buildDocumentLocal(p: Propiedad): string {
+  const parts: string[] = [
+    p.titulo,
+    p.descripcion,
+    `${p.tipo} en ${p.ubicacion.barrio}, ${p.ubicacion.ciudad}, ${p.ubicacion.departamento}`,
+    `Estrato ${p.estrato}, ${p.areaM2}m², ${p.habitaciones} habitaciones, ${p.banos} baños, ${p.garajes} garaje(s)`,
+    `Antigüedad: ${p.antiguedadAnios === 0 ? 'obra nueva' : `${p.antiguedadAnios} años`}`,
+    `Características: ${p.caracteristicas.join(', ')}`,
+    `Precio: $${(p.precio.valor / 1_000_000).toFixed(0)}M ${p.precio.moneda}${p.precio.negociable ? ', precio negociable' : ''}`,
+    `Operación: ${p.operacion}`,
+  ];
+
+  if (p.amoblado) parts.push('Amoblado: sí, entrega con muebles incluidos');
+  if (p.esVIS) parts.push('Vivienda de Interés Social (VIS), aplica subsidios primer vivienda');
+  if (p.esVIP) parts.push('Vivienda de Interés Prioritario (VIP)');
+  if (p.subsidiosAplicables?.length) parts.push(`Subsidios: ${p.subsidiosAplicables.join(', ')}`);
+  if (p.piso) parts.push(`Piso ${p.piso} de ${p.pisosTotalesEdificio ?? '?'}`);
+
+  return parts.join('. ');
+}
+
+async function testDocumentTokenLimits(): Promise<number> {
+  console.log('\n━━━ SUITE 6: Valores límite por tokens en documentos (BVA) ━━━━━━━━');
+  let failures = 0;
+
+  const SEED_PATH = resolve(process.cwd(), 'data/seeds/propiedades.json');
+  const propiedades = JSON.parse(readFileSync(SEED_PATH, 'utf-8')) as Propiedad[];
+
+  const tokenCounts: { id: string; tokens: number; chars: number }[] = [];
+
+  for (const p of propiedades) {
+    const doc = buildDocumentLocal(p);
+    tokenCounts.push({ id: p.id, tokens: approxTokens(doc), chars: doc.length });
+  }
+
+  const sorted = [...tokenCounts].sort((a, b) => b.tokens - a.tokens);
+  const max = sorted[0].tokens;
+  const min = sorted[sorted.length - 1].tokens;
+  const avg = Math.round(tokenCounts.reduce((s, x) => s + x.tokens, 0) / tokenCounts.length);
+  const p95idx = Math.floor(sorted.length * 0.05);
+  const p95 = sorted[p95idx > 0 ? p95idx : 0].tokens;
+
+  console.log(`  Documentos analizados : ${tokenCounts.length}`);
+  console.log(`  Tokens — mín: ${min}  promedio: ${avg}  p95: ${p95}  máx: ${max}`);
+  console.log(`  Umbral seguro: ${TOKEN_SAFE_LIMIT} t  |  Límite del modelo: ${TOKEN_MODEL_LIMIT} t`);
+  console.log('');
+
+  // Verificar cada documento por zona BVA
+  for (const { id, tokens } of sorted) {
+    if (tokens > TOKEN_MODEL_LIMIT) {
+      fail(`${id}  → ${tokens} t  ← TRUNCACIÓN ACTIVA (supera ${TOKEN_MODEL_LIMIT})`);
+      failures++;
+    } else if (tokens > TOKEN_SAFE_LIMIT) {
+      fail(`${id}  → ${tokens} t  ← RIESGO (supera umbral seguro ${TOKEN_SAFE_LIMIT})`);
+      failures++;
+    } else if (tokens > TOKEN_WARN_LIMIT) {
+      console.log(`  ⚠   ${id}  → ${tokens} t  (zona advertencia ${TOKEN_WARN_LIMIT}–${TOKEN_SAFE_LIMIT})`);
+    } else {
+      pass(`${id}  → ${tokens} t  ✓`);
+    }
+  }
+
+  // Resumen de zonas BVA
+  const zonas = {
+    truncacion: tokenCounts.filter(x => x.tokens > TOKEN_MODEL_LIMIT).length,
+    riesgo:     tokenCounts.filter(x => x.tokens > TOKEN_SAFE_LIMIT && x.tokens <= TOKEN_MODEL_LIMIT).length,
+    advertencia:tokenCounts.filter(x => x.tokens > TOKEN_WARN_LIMIT && x.tokens <= TOKEN_SAFE_LIMIT).length,
+    segura:     tokenCounts.filter(x => x.tokens <= TOKEN_WARN_LIMIT).length,
+  };
+
+  console.log('\n  Resumen de zonas BVA:');
+  console.log(`    TRUNCACIÓN   (>${TOKEN_MODEL_LIMIT} t):    ${zonas.truncacion} docs`);
+  console.log(`    RIESGO       (${TOKEN_SAFE_LIMIT}–${TOKEN_MODEL_LIMIT} t): ${zonas.riesgo} docs`);
+  console.log(`    ADVERTENCIA  (${TOKEN_WARN_LIMIT}–${TOKEN_SAFE_LIMIT} t): ${zonas.advertencia} docs`);
+  console.log(`    SEGURA       (≤${TOKEN_WARN_LIMIT} t):   ${zonas.segura} docs`);
+
+  if (failures === 0) {
+    pass(`Todos los documentos están dentro del umbral seguro (≤${TOKEN_SAFE_LIMIT} tokens)`);
+  } else {
+    console.error(`\n  Acción: revisar buildDocument() en scripts/seed-chromadb.ts y reducir`);
+    console.error(`  los campos que generan más tokens, o dividir la descripción en dos campos.`);
+  }
+
+  return failures;
+}
+
+// -----------------------------------------------------------------------
 // Runner de pruebas IA — orquesta todas las suites
 // -----------------------------------------------------------------------
 async function runModelTests(): Promise<void> {
@@ -513,6 +639,7 @@ async function runModelTests(): Promise<void> {
     testOutOfDomain(),
     testDeterminism(),
     testLatency(),
+    testDocumentTokenLimits(),
   ]);
 
   const failures = results.reduce((total, r) => {
@@ -526,6 +653,7 @@ async function runModelTests(): Promise<void> {
   console.log(`  Suite 3 — Queries fuera dominio: ${results[2].status === 'fulfilled' && results[2].value === 0 ? 'PASS' : 'FAIL'}`);
   console.log(`  Suite 4 — Determinismo:          ${results[3].status === 'fulfilled' && results[3].value === 0 ? 'PASS' : 'FAIL'}`);
   console.log(`  Suite 5 — Latencia:              ${results[4].status === 'fulfilled' && results[4].value === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`  Suite 6 — Tokens docs ChromaDB:  ${results[5].status === 'fulfilled' && results[5].value === 0 ? 'PASS' : 'FAIL'}`);
 
   if (failures > 0) {
     console.error(`\nFAIL: ${failures} prueba(s) de IA fallaron.`);
