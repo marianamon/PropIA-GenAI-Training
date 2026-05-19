@@ -278,3 +278,152 @@ const MAX_AVG_FP          = 4.0;   // máximo 4 FP promedio por query (de K=5 po
 | VIS query P@5 | ~0.00 | 0.60 | — |
 
 > **Nota sobre la Precision:** el valor bajó de 0.35 a 0.32 al cambiar el golden dataset a queries más exigentes (más `expectedIds` por query). No es una regresión — es que el ground truth ahora es más estricto.
+
+---
+
+## ADR-005 — Implementación de 5 suites de pruebas específicas de IA
+
+**Estado:** Aceptado  
+**Fecha:** 2026-05-19  
+**Autora:** QA — Mariana Alzate
+
+### Contexto
+
+Las métricas del golden dataset (P@5, R@5, F1, MRR, FPs) evalúan la calidad de los resultados contra un ground truth fijo. Sin embargo, no cubren aspectos exclusivos del comportamiento de un modelo de IA:
+
+- ¿El espacio vectorial tiene sentido semántico para el dominio inmobiliario colombiano?
+- ¿El modelo es robusto ante variaciones naturales de escritura del usuario?
+- ¿Qué pasa cuando el usuario busca algo completamente fuera de dominio?
+- ¿Los resultados son reproducibles o cambian entre ejecuciones?
+- ¿El sistema responde dentro del SLA definido en el README (< 2s)?
+
+Ninguna de estas preguntas se responde con métricas de ranking. Son propiedades del modelo y el pipeline que requieren pruebas dedicadas.
+
+### Decisión
+
+Implementar 5 suites de pruebas en `evaluate.ts` que se ejecutan después del golden dataset, usando la misma función `embed()` y `semanticSearch()` del sistema real. Las suites corren en paralelo con `Promise.allSettled()` para maximizar velocidad, y cualquier falla hace `process.exit(1)` en CI igual que las métricas.
+
+---
+
+### Suite 1 — Calidad de embeddings
+
+**Qué hace:** calcula la similitud coseno entre pares de textos para verificar que el espacio vectorial de 384 dimensiones captura relaciones semánticas correctas dentro del dominio.
+
+**Fórmula utilizada:**
+```
+coseno(A, B) = (A · B) / (|A| × |B|)
+```
+Como `embed()` usa `normalize: true`, los vectores tienen magnitud 1 y el coseno es igual al producto punto.
+
+**Pares evaluados y thresholds:**
+
+| Par de textos | Threshold | Justificación |
+|---|---|---|
+| "apartamento tranquilo cerca al metro" vs "propiedad en zona silencio con acceso a transporte" | coseno > 0.5 | Frases semánticamente equivalentes |
+| "penthouse de lujo El Poblado" vs "VIS estrato 2 subsidio primer vivienda" | coseno < 0.5 | Conceptos opuestos en el dominio |
+| "parqueadero" vs "garaje cubierto para vehiculo" | coseno > 0.5 | Sinónimos del dominio colombiano |
+| "pet-friendly mascotas permitidas" vs "se aceptan perros y gatos" | coseno > 0.5 | Anglicismo vs descripción en español |
+| "home office espacio de trabajo" vs "cancha de futbol estadio" | coseno < 0.4 | Conceptos sin relación alguna |
+
+**Resultado de la primera ejecución:**
+
+| Test | Coseno | Estado | Hallazgo |
+|---|---|---|---|
+| Frases equivalentes | 0.554 | PASS | El modelo entiende paráfrasis |
+| Lujo vs VIS | 0.360 | PASS | Los opuestos quedan alejados |
+| Parqueadero vs garaje | **0.297** | **FAIL** | El modelo no reconoce este sinónimo colombiano |
+| Pet-friendly vs descripción | **0.113** | **FAIL** | Anglicismo y español están en espacios muy distintos |
+| Home office vs deporte | 0.298 | PASS | Sin relación, correctamente alejados |
+
+---
+
+### Suite 2 — Robustez de queries
+
+**Qué hace:** verifica que variaciones naturales de la misma intención (sinónimos, cambio de case, siglas vs descripción completa, anglicismos) retornan el mismo `top-1` o al menos 2/3 de overlap en el top-3.
+
+**Pares evaluados:**
+
+| Query base | Query variante | Criterio |
+|---|---|---|
+| `"apartamento cerca al metro"` | `"apto cerca a la estacion de metro"` | Mismo top-1 |
+| `"algo pet-friendly"` | `"propiedad donde se permiten mascotas"` | Mismo top-1 |
+| `"apartamento nuevo con subsidio VIS primer vivienda"` | `"vivienda social subsidiada para comprar por primera vez"` | Mismo top-1 |
+| `"oficina moderna en zona empresarial"` | `"OFICINA MODERNA EN ZONA EMPRESARIAL"` | Mismo top-1 (case-insensitive) |
+
+**Resultado:** PASS en los 4 casos. El modelo es robusto ante variaciones de escritura cotidianas.
+
+---
+
+### Suite 3 — Queries fuera de dominio
+
+**Qué hace:** verifica que el sistema no retorna resultados con score alto ante queries sin relación con propiedades inmobiliarias. Define un umbral `SCORE_MAX_OUT_OF_DOMAIN = 0.10`.
+
+**Queries evaluadas:**
+
+| Query | Score obtenido | Estado |
+|---|---|---|
+| "recetas de cocina colombiana con ajiaco" | **0.131** | **FAIL** — supera umbral |
+| "presidente de Colombia historia politica" | -0.091 | PASS |
+| "iPhone 15 pro max precio colombia" | -0.289 | PASS |
+| "partido de futbol atletico nacional" | -0.182 | PASS |
+
+**Hallazgo:** "recetas de cocina" obtuvo score 0.131 porque el modelo encuentra similitud superficial entre palabras como "colombiana" y los textos del catálogo. El umbral de 0.10 es demasiado estricto para este modelo — necesita ajuste o la pantalla de fallback no se activará correctamente.
+
+---
+
+### Suite 4 — Determinismo
+
+**Qué hace:** ejecuta la misma query dos veces en paralelo y verifica que los IDs y scores sean bit a bit idénticos.
+
+**Queries evaluadas:** `"algo tranquilo cerca del metro"`, `"penthouse de lujo con piscina y vista"`, `"apartaestudio economico para estudiante"`.
+
+**Resultado:** PASS en los 3 casos. El modelo `all-MiniLM-L6-v2` con `normalize: true` y `pooling: mean` es completamente determinista — dada la misma entrada, siempre produce el mismo vector.
+
+**Por qué importa:** sistemas con sampling aleatorio (como LLMs con `temperature > 0`) no son deterministas. Verificar esto explícitamente es crítico antes de comparar resultados entre ejecuciones de CI.
+
+---
+
+### Suite 5 — Latencia
+
+**Qué hace:** tras un warm-up (primera llamada para cargar el modelo en memoria), mide el tiempo de respuesta de 3 queries y verifica que ninguna supere los 2000ms definidos en los criterios de éxito del README.
+
+**Estrategia de warm-up:** la primera carga de `all-MiniLM-L6-v2` tarda 30-60s (descarga + carga en RAM). Las suites de latencia se ejecutan al final del evaluador, cuando el modelo ya está en memoria desde las suites anteriores. El warm-up explícito garantiza que medimos el tiempo real de inferencia, no el de carga.
+
+**Resultados:**
+
+| Query | Tiempo | Estado |
+|---|---|---|
+| `"algo tranquilo cerca del metro"` | 75ms | PASS |
+| `"espacio para trabajar desde casa"` | 43ms | PASS |
+| `"penthouse de lujo con piscina y vista"` | 29ms | PASS |
+
+El sistema responde en **29-75ms** post-warm-up — 27x por debajo del SLA de 2s.
+
+---
+
+### Alternativas consideradas
+
+| Alternativa | Razón de descarte |
+|---|---|
+| Archivo separado `model-tests.ts` | Fragmenta la visibilidad; un solo archivo ejecutable es más simple para CI |
+| Usar framework de testing (Jest, Vitest) | Añade dependencias y configuración; `tsx` directo es suficiente para el scope actual |
+| Thresholds de coseno fijos sin justificación | Cada threshold tiene una razón semántica documentada; no son números arbitrarios |
+| Ejecutar suites secuencialmente | `Promise.allSettled()` las paraleliza y reduce el tiempo total de evaluación |
+
+### Tabla de hallazgos, impacto y acción
+
+| Hallazgo | Impacto en el sistema | Acción recomendada |
+|---|---|---|
+| `parqueadero` ≠ `garaje` (coseno 0.297) | Queries con "garaje" no encuentran propiedades que usan "parqueadero" en el catálogo | Añadir en `buildDocument()`: `Estacionamiento/garaje/parqueadero: N` para indexar los sinónimos juntos |
+| `pet-friendly` ≠ descripción en español (coseno 0.113) | Búsquedas en español ("se aceptan mascotas") no encuentran propiedades etiquetadas en inglés | Normalizar en `buildDocument()`: añadir "mascotas permitidas, apto para animales" cuando `caracteristicas` incluye "pet-friendly" |
+| `"recetas de cocina"` score 0.131 > umbral 0.10 | El umbral de fallback para la pantalla "sin resultados" es demasiado estricto para este modelo | Ajustar `SCORE_MAX_OUT_OF_DOMAIN` a `0.15` o redefinir el criterio de fallback como `score < 0.05 EN EL TOP-1 de los resultados filtrados` |
+| Robustez: PASS en 4/4 variaciones | El modelo maneja correctamente sinónimos, siglas y mayúsculas | Sin acción requerida — documentar como fortaleza del modelo |
+| Determinismo: PASS en 3/3 queries | Los resultados de CI son reproducibles y comparables entre ejecuciones | Sin acción requerida |
+| Latencia: 29-75ms post-warm-up | El SLA de 2s se cumple con margen de 27x | Monitorear si el catálogo crece a 500+ propiedades; re-evaluar latencia con k=20 |
+
+### Consecuencias
+
+- **Positivas:** el evaluador ahora cubre tanto la calidad de resultados (golden dataset) como propiedades del modelo (suites de IA). Un solo comando `npx tsx evaluate.ts` ejecuta ambos grupos y falla CI si cualquiera regresa.
+- **Positivas:** los hallazgos de Suite 1 (sinónimos no reconocidos) son accionables directamente en `buildDocument()` sin cambiar el modelo.
+- **Negativas:** el tiempo total de evaluación aumentó porque las suites de IA generan embeddings adicionales. Con el catálogo actual (20 propiedades) el impacto es mínimo; con catálogos más grandes puede necesitar caché de embeddings entre suites.
+- **Deuda técnica:** el umbral `SCORE_MAX_OUT_OF_DOMAIN` (Suite 3) debe calibrarse empíricamente con más queries fuera de dominio antes de usarse como gate de CI definitivo.

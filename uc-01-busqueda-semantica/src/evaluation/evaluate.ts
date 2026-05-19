@@ -1,4 +1,5 @@
 import { semanticSearch, type SearchResult } from '../search.js';
+import { embed } from '@propia/embeddings';
 
 // -----------------------------------------------------------------------
 // Golden dataset: 10 queries con las propiedades que DEBERIAN aparecer.
@@ -256,7 +257,293 @@ async function runEvaluation() {
   console.log(`\nPASS: Busqueda semantica supera los umbrales.`);
 }
 
-runEvaluation().catch(err => {
+// -----------------------------------------------------------------------
+// Utilidad: similitud coseno entre dos vectores.
+// Como embed() usa normalize:true, los vectores ya tienen magnitud 1,
+// así que coseno = producto punto. Lo calculamos explícitamente igual
+// para que funcione aunque se cambie el modelo.
+// -----------------------------------------------------------------------
+function cosineSimilarity(a: number[], b: number[]): number {
+  const dot = a.reduce((sum, v, i) => sum + v * (b[i] ?? 0), 0);
+  const magA = Math.sqrt(a.reduce((s, v) => s + v * v, 0));
+  const magB = Math.sqrt(b.reduce((s, v) => s + v * v, 0));
+  if (magA === 0 || magB === 0) return 0;
+  return dot / (magA * magB);
+}
+
+function pass(msg: string) { console.log(`  ✓  ${msg}`); }
+function fail(msg: string) { console.error(`  ✗  ${msg}`); }
+
+// -----------------------------------------------------------------------
+// SUITE 1 — Calidad de embeddings
+// Verifica que el espacio vectorial tiene sentido para el dominio:
+//   - Conceptos similares → coseno alto
+//   - Conceptos opuestos → coseno bajo
+//   - Sinónimos inmobiliarios → coseno alto
+// -----------------------------------------------------------------------
+async function testEmbeddingQuality(): Promise<number> {
+  console.log('\n━━━ SUITE 1: Calidad de embeddings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  let failures = 0;
+
+  const cases: { a: string; b: string; minSim?: number; maxSim?: number; label: string }[] = [
+    {
+      a: 'apartamento tranquilo cerca al metro',
+      b: 'propiedad en zona de silencio con acceso a transporte',
+      minSim: 0.5,
+      label: 'Frases semánticamente equivalentes deben tener coseno > 0.5',
+    },
+    {
+      a: 'penthouse de lujo El Poblado piscina privada',
+      b: 'VIS estrato 2 subsidio primer vivienda',
+      maxSim: 0.5,
+      label: 'Conceptos opuestos (lujo vs VIS) deben tener coseno < 0.5',
+    },
+    {
+      a: 'parqueadero',
+      b: 'garaje cubierto para vehiculo',
+      minSim: 0.5,
+      label: 'Sinónimos del dominio (parqueadero ≈ garaje) deben tener coseno > 0.5',
+    },
+    {
+      a: 'pet-friendly mascotas permitidas',
+      b: 'se aceptan perros y gatos en el inmueble',
+      minSim: 0.5,
+      label: 'Pet-friendly y su descripción deben tener coseno > 0.5',
+    },
+    {
+      a: 'home office espacio de trabajo desde casa',
+      b: 'cancha de futbol estadio deportivo',
+      maxSim: 0.4,
+      label: 'Conceptos sin relación (home office vs deporte) deben tener coseno < 0.4',
+    },
+  ];
+
+  for (const c of cases) {
+    const [vA, vB] = await Promise.all([embed(c.a), embed(c.b)]);
+    const sim = cosineSimilarity(vA, vB);
+    const simStr = sim.toFixed(3);
+
+    if (c.minSim !== undefined && sim < c.minSim) {
+      fail(`${c.label}\n       coseno=${simStr} < ${c.minSim}\n       "${c.a}"  vs  "${c.b}"`);
+      failures++;
+    } else if (c.maxSim !== undefined && sim > c.maxSim) {
+      fail(`${c.label}\n       coseno=${simStr} > ${c.maxSim}\n       "${c.a}"  vs  "${c.b}"`);
+      failures++;
+    } else {
+      pass(`${c.label}  (coseno=${simStr})`);
+    }
+  }
+  return failures;
+}
+
+// -----------------------------------------------------------------------
+// SUITE 2 — Robustez de queries
+// Variaciones de la misma intención deben retornar el mismo top-1
+// o al menos compartir resultados en el top-3.
+// -----------------------------------------------------------------------
+async function testQueryRobustness(): Promise<number> {
+  console.log('\n━━━ SUITE 2: Robustez de queries ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  let failures = 0;
+
+  const equivalences: { base: string; variant: string; label: string }[] = [
+    {
+      base: 'apartamento cerca al metro',
+      variant: 'apto cerca a la estacion de metro',
+      label: 'Sinónimos "apartamento" vs "apto", "cerca al" vs "cerca a la"',
+    },
+    {
+      base: 'algo pet-friendly',
+      variant: 'propiedad donde se permiten mascotas',
+      label: 'Anglicismo "pet-friendly" vs descripción en español',
+    },
+    {
+      base: 'apartamento nuevo con subsidio VIS primer vivienda',
+      variant: 'vivienda social subsidiada para comprar por primera vez',
+      label: 'Sigla "VIS" vs descripción completa',
+    },
+    {
+      base: 'oficina moderna en zona empresarial',
+      variant: 'OFICINA MODERNA EN ZONA EMPRESARIAL',
+      label: 'Misma query en mayúsculas vs minúsculas (case-insensitivity)',
+    },
+  ];
+
+  for (const { base, variant, label } of equivalences) {
+    const [rBase, rVariant] = await Promise.all([
+      semanticSearch(base, undefined, 3),
+      semanticSearch(variant, undefined, 3),
+    ]);
+
+    const idsBase    = rBase.map(r => r.propiedadId);
+    const idsVariant = rVariant.map(r => r.propiedadId);
+    const overlap    = idsBase.filter(id => idsVariant.includes(id)).length;
+    const sameTop1   = idsBase[0] === idsVariant[0];
+
+    if (sameTop1) {
+      pass(`${label}  → mismo top-1: ${idsBase[0]}`);
+    } else if (overlap >= 2) {
+      pass(`${label}  → top-1 difiere pero overlap top-3: ${overlap}/3  [${idsBase[0]} vs ${idsVariant[0]}]`);
+    } else {
+      fail(`${label}\n       base:    ${idsBase.join(', ')}\n       variant: ${idsVariant.join(', ')}\n       overlap top-3: ${overlap}/3`);
+      failures++;
+    }
+  }
+  return failures;
+}
+
+// -----------------------------------------------------------------------
+// SUITE 3 — Queries fuera de dominio
+// El modelo no debe retornar resultados con score alto cuando la query
+// no tiene relación con propiedades inmobiliarias.
+// -----------------------------------------------------------------------
+async function testOutOfDomain(): Promise<number> {
+  console.log('\n━━━ SUITE 3: Queries fuera de dominio ━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  let failures = 0;
+
+  // Umbral: si el mejor score es mayor a este valor, el modelo está siendo
+  // demasiado "confiado" con una query que no tiene nada que ver.
+  const SCORE_MAX_OUT_OF_DOMAIN = 0.10;
+
+  const outOfDomainQueries = [
+    'recetas de cocina colombiana con ajiaco',
+    'presidente de Colombia historia politica',
+    'iPhone 15 pro max precio colombia',
+    'partido de futbol atletico nacional',
+  ];
+
+  for (const q of outOfDomainQueries) {
+    const results = await semanticSearch(q, undefined, 1);
+    const topScore = results[0]?.score ?? -1;
+
+    if (topScore > SCORE_MAX_OUT_OF_DOMAIN) {
+      fail(`Query fuera de dominio retornó score alto\n       query="${q}"\n       top score=${topScore.toFixed(3)} > umbral ${SCORE_MAX_OUT_OF_DOMAIN}\n       → el modelo está sobreconfiado`);
+      failures++;
+    } else {
+      pass(`"${q.substring(0, 45)}"  → score=${topScore.toFixed(3)} ≤ ${SCORE_MAX_OUT_OF_DOMAIN}  (bien contenido)`);
+    }
+  }
+  return failures;
+}
+
+// -----------------------------------------------------------------------
+// SUITE 4 — Determinismo del modelo
+// La misma query ejecutada dos veces debe retornar exactamente
+// los mismos resultados (IDs y scores).
+// -----------------------------------------------------------------------
+async function testDeterminism(): Promise<number> {
+  console.log('\n━━━ SUITE 4: Determinismo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  let failures = 0;
+
+  const testQueries = [
+    'algo tranquilo cerca del metro',
+    'penthouse de lujo con piscina y vista',
+    'apartaestudio economico para estudiante',
+  ];
+
+  for (const q of testQueries) {
+    const [r1, r2] = await Promise.all([
+      semanticSearch(q, undefined, 5),
+      semanticSearch(q, undefined, 5),
+    ]);
+
+    const ids1 = r1.map(r => r.propiedadId).join(',');
+    const ids2 = r2.map(r => r.propiedadId).join(',');
+    const scores1 = r1.map(r => r.score.toFixed(4)).join(',');
+    const scores2 = r2.map(r => r.score.toFixed(4)).join(',');
+
+    if (ids1 !== ids2) {
+      fail(`IDs no deterministas para "${q}"\n       run1: ${ids1}\n       run2: ${ids2}`);
+      failures++;
+    } else if (scores1 !== scores2) {
+      fail(`Scores no deterministas para "${q}"\n       run1: ${scores1}\n       run2: ${scores2}`);
+      failures++;
+    } else {
+      pass(`"${q.substring(0, 45)}"  → resultados idénticos en 2 ejecuciones`);
+    }
+  }
+  return failures;
+}
+
+// -----------------------------------------------------------------------
+// SUITE 5 — Latencia
+// Cada query debe resolverse en < 2000ms (criterio de éxito del README).
+// El primer call puede tardar más (carga del modelo), los siguientes no.
+// -----------------------------------------------------------------------
+async function testLatency(): Promise<number> {
+  console.log('\n━━━ SUITE 5: Latencia (umbral < 2000ms) ━━━━━━━━━━━━━━━━━━━━━━━━');
+  let failures = 0;
+  const MAX_MS = 2000;
+
+  const queries = [
+    'algo tranquilo cerca del metro',
+    'espacio para trabajar desde casa con buena luz',
+    'penthouse de lujo con piscina y vista',
+  ];
+
+  // Warm-up: primera llamada para cargar el modelo en memoria
+  console.log('  (warm-up: cargando modelo en memoria...)');
+  await semanticSearch(queries[0], undefined, 1);
+
+  for (const q of queries) {
+    const start = Date.now();
+    await semanticSearch(q, undefined, 5);
+    const elapsed = Date.now() - start;
+
+    if (elapsed > MAX_MS) {
+      fail(`"${q.substring(0, 40)}"  → ${elapsed}ms > ${MAX_MS}ms  ← supera el SLA`);
+      failures++;
+    } else {
+      pass(`"${q.substring(0, 40)}"  → ${elapsed}ms  ✓`);
+    }
+  }
+  return failures;
+}
+
+// -----------------------------------------------------------------------
+// Runner de pruebas IA — orquesta todas las suites
+// -----------------------------------------------------------------------
+async function runModelTests(): Promise<void> {
+  console.log('\n\n' + '═'.repeat(72));
+  console.log('  PRUEBAS ESPECÍFICAS DE IA — UC-01 Búsqueda Semántica');
+  console.log('═'.repeat(72));
+
+  const results = await Promise.allSettled([
+    testEmbeddingQuality(),
+    testQueryRobustness(),
+    testOutOfDomain(),
+    testDeterminism(),
+    testLatency(),
+  ]);
+
+  const failures = results.reduce((total, r) => {
+    return total + (r.status === 'fulfilled' ? r.value : 1);
+  }, 0);
+
+  console.log('\n' + '─'.repeat(72));
+  console.log(`\nResumen pruebas IA:`);
+  console.log(`  Suite 1 — Calidad embeddings:    ${results[0].status === 'fulfilled' && results[0].value === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`  Suite 2 — Robustez de queries:   ${results[1].status === 'fulfilled' && results[1].value === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`  Suite 3 — Queries fuera dominio: ${results[2].status === 'fulfilled' && results[2].value === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`  Suite 4 — Determinismo:          ${results[3].status === 'fulfilled' && results[3].value === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`  Suite 5 — Latencia:              ${results[4].status === 'fulfilled' && results[4].value === 0 ? 'PASS' : 'FAIL'}`);
+
+  if (failures > 0) {
+    console.error(`\nFAIL: ${failures} prueba(s) de IA fallaron.`);
+    process.exit(1);
+  }
+
+  console.log('\nPASS: Todas las pruebas de IA superadas.');
+}
+
+// -----------------------------------------------------------------------
+// Entry point — corre evaluación de métricas primero, luego pruebas de IA
+// -----------------------------------------------------------------------
+async function main() {
+  await runEvaluation();
+  await runModelTests();
+}
+
+main().catch(err => {
   console.error('Error en evaluacion:', err);
   process.exit(1);
 });
