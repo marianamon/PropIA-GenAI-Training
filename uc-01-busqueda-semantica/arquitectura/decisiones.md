@@ -150,6 +150,71 @@ Al final del reporte, mostrar el ranking de propiedades más confundidas y en qu
 - **Acción derivada:** Para reducir sus FPs se puede (a) añadir el sistema de transporte específico en `buildDocument()` diferenciando "Metro de Medellín" de "TransMilenio Bogotá", o (b) aplicar filtro `ciudad` en las queries donde el contexto geográfico es implícito.
 - **Negativas:** El reporte se vuelve más largo. En CI se puede suprimir el detalle con una flag `--quiet` si el output es demasiado verboso.
 
+### Nota de mejora — Diferenciación semántica Metro vs TransMilenio
+
+**Problema raíz identificado:**  
+El modelo `all-MiniLM-L6-v2` fue entrenado con texto general de internet, donde "metro", "TransMilenio", "subte", "MIO" y "transporte masivo" comparten contextos similares y quedan cerca en el espacio vectorial de 384 dimensiones. Para el modelo son sinónimos conceptuales; no sabe que son sistemas distintos en ciudades distintas.
+
+Esto genera que una query como `"algo tranquilo cerca del metro"` active propiedades bogotanas con TransMilenio aunque el usuario implícitamente busque en Medellín.
+
+**Mejoras propuestas en orden de impacto y costo:**
+
+**Mejora 1 — Enriquecer `buildDocument()` con el nombre explícito del sistema (bajo costo, sin re-entrenar)**
+
+Modificar `scripts/seed-chromadb.ts` para incluir la ciudad junto al sistema de transporte, forzando que el texto indexado diferencie explícitamente:
+
+```typescript
+// En buildDocument(), añadir línea de transporte si existe en características
+const transporteMDE = p.caracteristicas.some(c => c.includes('metro'))
+  && p.ubicacion.ciudad === 'Medellín' || p.ubicacion.ciudad === 'Envigado'
+  || p.ubicacion.ciudad === 'Sabaneta';
+
+const transporteBOG = p.caracteristicas.some(c =>
+  c.toLowerCase().includes('transmilenio') || c.toLowerCase().includes('sitp')
+) && p.ubicacion.ciudad === 'Bogotá';
+
+if (transporteMDE) parts.push('Transporte: Metro de Medellín (sistema de metro subterráneo y elevado)');
+if (transporteBOG) parts.push('Transporte: TransMilenio Bogotá (sistema de buses de tránsito rápido BRT)');
+```
+
+Tras re-indexar con `npm run seed:chromadb`, el modelo tendría texto diferente para cada sistema y sus vectores se alejarían entre sí.
+
+**Mejora 2 — Filtro de metadata por ciudad en `search.ts` (bajo costo, sin re-indexar)**
+
+Cuando la query no especifica ciudad, inferirla del contexto si menciona "metro" (→ Medellín/área metropolitana) o "TransMilenio" (→ Bogotá):
+
+```typescript
+// En semanticSearch(), inferir ciudad si la query menciona el sistema
+function inferCiudad(query: string): string | undefined {
+  const q = query.toLowerCase();
+  if (q.includes('metro') && !q.includes('transmilenio')) return 'Medellín';
+  if (q.includes('transmilenio') || q.includes('sitp')) return 'Bogotá';
+  return undefined;
+}
+
+// Aplicar como filtro automático si el usuario no lo especificó
+const ciudadInferida = filters?.ciudad ?? inferCiudad(query);
+if (ciudadInferida) conditions.push({ ciudad: ciudadInferida });
+```
+
+**Mejora 3 — Cambiar a modelo multilingüe con mayor contexto geográfico (costo medio)**
+
+Reemplazar `all-MiniLM-L6-v2` por `paraphrase-multilingual-MiniLM-L12-v2` en `packages/embeddings/src/embed.ts`. Este modelo fue entrenado con pares de frases en 50 idiomas y tiene mayor sensibilidad a entidades geográficas y nombres propios. Requiere re-indexar toda la colección.
+
+**Mejora 4 — Fine-tuning con datos de PropIA (alto costo, máximo impacto)**
+
+Entrenar el modelo con pares `(query PropIA, propiedad relevante)` usando los datos del golden dataset y búsquedas reales de usuarios. El modelo aprendería que en el contexto de PropIA "metro" = sistema Metro del Valle de Aburrá, no cualquier transporte masivo. Requiere infraestructura de entrenamiento y un dataset etiquetado más amplio (mínimo 500-1000 pares).
+
+**Orden de implementación recomendado:**
+
+```
+Mejora 1 (buildDocument)  →  Mejora 2 (inferCiudad)  →  Mejora 3 (modelo)  →  Mejora 4 (fine-tuning)
+    1-2 horas                    1 hora                    2-4 horas              semanas
+    sin infra extra              sin infra extra            re-indexar             infra ML
+```
+
+> Aplicar Mejora 1 + Mejora 2 debería eliminar `prop-bog-011` y `prop-bog-015` como FPs en la query `"algo tranquilo cerca del metro"` y reducir el total de FPs de 34 a ~26, subiendo P@5 promedio de 0.32 a ~0.45 sin cambiar el modelo.
+
 ---
 
 ## ADR-004 — Thresholds de CI para las 4 métricas
