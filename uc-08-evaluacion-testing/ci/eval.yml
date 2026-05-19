@@ -1,0 +1,95 @@
+# Workflow ejemplo para correr la suite de evaluación en GitHub Actions.
+# Copialo a .github/workflows/eval.yml cuando estés listo. Está aquí
+# porque editar .github/ requiere permisos elevados en muchos repos
+# y conviene revisar antes de habilitarlo.
+
+name: PropIA Evaluation Suite
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # permite correrlo manualmente desde la UI
+
+jobs:
+  validate-dataset:
+    name: Validar golden dataset (rápido, sin tokens)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsx uc-08-evaluacion-testing/scripts/validate-golden-dataset.ts
+
+  evaluate:
+    name: RAGAS + Promptfoo + security
+    needs: validate-dataset # solo corre si el dataset está bien
+    runs-on: ubuntu-latest
+    services:
+      chromadb:
+        image: chromadb/chroma:latest
+        ports: ["8000:8000"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: npm ci --legacy-peer-deps
+      - run: pip install -r uc-08-evaluacion-testing/requirements.txt
+
+      - name: Sembrar ChromaDB
+        run: npm run seed:chromadb
+
+      - name: Levantar UC-02 en background
+        run: |
+          npx tsx uc-02-asistente-conversacional/src/api.ts &
+          sleep 5
+          curl -sf http://localhost:3000/api/chat -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"message":"ping","sessionId":"healthcheck"}' || echo "UC-02 no responde aún"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: RAGAS eval
+        run: python uc-08-evaluacion-testing/src/evaluation/ragas_eval.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # ragas usa OpenAI por default; configurable
+
+      - name: Security tests
+        run: python uc-08-evaluacion-testing/src/evaluation/security_tests.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Levantar UC-03 en background
+        run: |
+          npx tsx uc-03-generador-fichas/src/api.ts &
+          sleep 5
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Promptfoo eval UC-03
+        run: |
+          npx promptfoo eval \
+            --config uc-08-evaluacion-testing/src/evaluation/promptfoo.yaml \
+            --output uc-08-evaluacion-testing/results-promptfoo.json
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Subir resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: |
+            uc-08-evaluacion-testing/results-*.json

@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+
+  <!-- ─── BACKGROUND ──────────────────────────────────────── -->
+  <rect width="300" height="400" fill="#0D1117" rx="14"/>
+  <rect x="1" y="1" width="298" height="398" fill="none" stroke="#21262D" stroke-width="2" rx="13"/>
+  <!-- Corner brackets -->
+  <path d="M10,2 L2,2 L2,10"   fill="none" stroke="#30363D" stroke-width="1.5"/>
+  <path d="M290,2 L298,2 L298,10" fill="none" stroke="#30363D" stroke-width="1.5"/>
+  <path d="M2,390 L2,398 L10,398"  fill="none" stroke="#30363D" stroke-width="1.5"/>
+  <path d="M298,390 L298,398 L290,398" fill="none" stroke="#30363D" stroke-width="1.5"/>
+
+  <!-- ─── ANTENNA ─────────────────────────────────────────── -->
+  <!-- Simulated glow halos (no filter needed) -->
+  <circle cx="150" cy="15" r="20" fill="#FF9800" opacity="0.06"/>
+  <circle cx="150" cy="15" r="14" fill="#FF9800" opacity="0.12"/>
+  <circle cx="150" cy="15" r="9"  fill="#FF8C00" opacity="0.65"/>
+  <circle cx="150" cy="15" r="6"  fill="#FF9800"/>
+  <circle cx="148" cy="13" r="2"  fill="#FFE0B2" opacity="0.6"/>
+  <!-- Stem -->
+  <rect x="147" y="21" width="6" height="21" fill="#546E7A" rx="2"/>
+
+  <!-- ─── HEAD ────────────────────────────────────────────── -->
+  <rect x="58" y="42" width="184" height="114" fill="#152841" rx="10"/>
+  <!-- Top highlight -->
+  <rect x="62" y="44" width="176" height="4" fill="#1E4060" rx="2" opacity="0.7"/>
+  <!-- Bottom shadow -->
+  <rect x="58" y="150" width="184" height="6" fill="#091829"/>
+
+  <!-- LEFT EYE — outer glow boxes -->
+  <rect x="76" y="60" width="58" height="58" fill="#FF9800" rx="7" opacity="0.07"/>
+  <rect x="79" y="63" width="52" height="52" fill="#FF8C00" rx="6" opacity="0.1"/>
+  <!-- Socket -->
+  <rect x="82" y="66" width="46" height="46" fill="#070E17" rx="6"/>
+  <!-- Iris layers -->
+  <rect x="85" y="69" width="40" height="40" fill="#E65100" rx="5"/>
+  <rect x="87" y="71" width="36" height="36" fill="#FF6D00" rx="4"/>
+  <!-- Pupil -->
+  <rect x="96" y="80" width="18" height="18" fill="#BF360C" rx="3"/>
+  <rect x="99" y="83" width="12" height="12" fill="#7F0000" rx="2"/>
+  <!-- Scanning line -->
+  <rect x="85" y="89" width="40" height="2" fill="#FF9800" opacity="0.45"/>
+  <!-- Shine -->
+  <rect x="87" y="71" width="11" height="11" fill="#FFFFFF" fill-opacity="0.18" rx="2"/>
+  <rect x="88" y="72" width="5"  height="5"  fill="#FFFFFF" fill-opacity="0.30" rx="1"/>
+
+  <!-- RIGHT EYE — outer glow boxes -->
+  <rect x="166" y="60" width="58" height="58" fill="#FF9800" rx="7" opacity="0.07"/>
+  <rect x="169" y="63" width="52" height="52" fill="#FF8C00" rx="6" opacity="0.1"/>
+  <!-- Socket -->
+  <rect x="172" y="66" width="46" height="46" fill="#070E17" rx="6"/>
+  <!-- Iris layers -->
+  <rect x="175" y="69" width="40" height="40" fill="#E65100" rx="5"/>
+  <rect x="177" y="71" width="36" height="36" fill="#FF6D00" rx="4"/>
+  <!-- Pupil -->
+  <rect x="186" y="80" width="18" height="18" fill="#BF360C" rx="3"/>
+  <rect x="189" y="83" width="12" height="12" fill="#7F0000" rx="2"/>
+  <!-- Scanning line -->
+  <rect x="175" y="89" width="40" height="2" fill="#FF9800" opacity="0.45"/>
+  <!-- Shine -->
+  <rect x="177" y="71" width="11" height="11" fill="#FFFFFF" fill-opacity="0.18" rx="2"/>
+  <rect x="178" y="72" width="5"  height="5"  fill="#FFFFFF" fill-opacity="0.30" rx="1"/>
+
+  <!-- Nose bridge -->
+  <rect x="132" y="84" width="36" height="4" fill="#1A3550" rx="2"/>
+
+  <!-- GRILL / MOUTH -->
+  <rect x="72" y="120" width="156" height="22" fill="#071810" rx="5"/>
+  <rect x="77"  y="124" width="16" height="14" fill="#4CAF50" rx="2"/>
+  <rect x="97"  y="124" width="16" height="14" fill="#4CAF50" rx="2"/>
+  <rect x="117" y="124" width="16" height="14" fill="#4CAF50" rx="2"/>
+  <rect x="137" y="124" width="16" height="14" fill="#4CAF50" rx="2"/>
+  <rect x="157" y="124" width="16" height="14" fill="#4CAF50" rx="2"/>
+  <rect x="177" y="124" width="16" height="14" fill="#4CAF50" rx="2" opacity="0.75"/>
+  <rect x="197" y="124" width="16" height="14" fill="#2E7D32" rx="2" opacity="0.45"/>
+
+  <!-- ─── NECK ─────────────────────────────────────────────── -->
+  <rect x="118" y="156" width="64" height="20" fill="#112030" rx="4"/>
+  <rect x="124" y="159" width="52" height="14" fill="#162B3D" rx="3"/>
+
+  <!-- ─── ARMS ───────────────────────────────────────────────  -->
+  <!-- Left Arm -->
+  <rect x="20" y="176" width="38" height="90" fill="#152841" rx="8"/>
+  <rect x="24" y="194" width="30" height="20" fill="#070E17" rx="4"/>
+  <rect x="26" y="197" width="26" height="14" fill="#1B3A5C" rx="3"/>
+  <rect x="26" y="197" width="10" height="14" fill="#FF9800" rx="2" opacity="0.6"/>
+  <rect x="24" y="252" width="30" height="10" fill="#091829" rx="5"/>
+
+  <!-- Right Arm -->
+  <rect x="242" y="176" width="38" height="90" fill="#152841" rx="8"/>
+  <rect x="246" y="194" width="30" height="20" fill="#070E17" rx="4"/>
+  <rect x="248" y="197" width="26" height="14" fill="#1B3A5C" rx="3"/>
+  <rect x="264" y="197" width="10" height="14" fill="#FF9800" rx="2" opacity="0.6"/>
+  <rect x="246" y="252" width="30" height="10" fill="#091829" rx="5"/>
+
+  <!-- ─── BODY ────────────────────────────────────────────── -->
+  <rect x="58" y="176" width="184" height="120" fill="#152841" rx="8"/>
+  <rect x="62" y="178" width="176" height="3" fill="#1E4060" rx="1" opacity="0.5"/>
+  <rect x="58" y="290" width="184" height="6" fill="#091829"/>
+
+  <!-- TERMINAL SCREEN -->
+  <!-- Bezel -->
+  <rect x="70" y="188" width="160" height="96" fill="#050D16" rx="7"/>
+  <!-- Screen surface -->
+  <rect x="74" y="192" width="152" height="88" fill="#060F1A" rx="5"/>
+  <!-- Subtle green screen tint -->
+  <rect x="74" y="192" width="152" height="88" fill="#00E676" rx="5" opacity="0.02"/>
+  <!-- Corner screws -->
+  <circle cx="77"  cy="195" r="2" fill="#0D1F2D"/>
+  <circle cx="223" cy="195" r="2" fill="#0D1F2D"/>
+  <circle cx="77"  cy="277" r="2" fill="#0D1F2D"/>
+  <circle cx="223" cy="277" r="2" fill="#0D1F2D"/>
+
+  <!-- Terminal text -->
+  <text x="81" y="209" font-family="Courier New,monospace" font-size="9" fill="#4D6675">$ propIA test --suite all</text>
+  <text x="81" y="223" font-family="Courier New,monospace" font-size="9" fill="#43A047">PASS  faithfulness   0.89</text>
+  <text x="81" y="237" font-family="Courier New,monospace" font-size="9" fill="#43A047">PASS  answer_rel     0.83</text>
+  <text x="81" y="251" font-family="Courier New,monospace" font-size="9" fill="#43A047">PASS  security  0/13 fail</text>
+  <text x="81" y="265" font-family="Courier New,monospace" font-size="9" fill="#FF9800">  247 tests  0 regressions</text>
+  <!-- Cursor -->
+  <rect x="81" y="270" width="6" height="8" fill="#00E676" opacity="0.65" rx="1"/>
+
+  <!-- ─── LEGS ────────────────────────────────────────────── -->
+  <!-- Left Leg -->
+  <rect x="82" y="296" width="50" height="56" fill="#152841" rx="5"/>
+  <rect x="86" y="300" width="42" height="10" fill="#070E17" rx="3"/>
+  <!-- Right Leg -->
+  <rect x="168" y="296" width="50" height="56" fill="#152841" rx="5"/>
+  <rect x="172" y="300" width="42" height="10" fill="#070E17" rx="3"/>
+
+  <!-- ─── FEET ────────────────────────────────────────────── -->
+  <rect x="70"  y="346" width="72" height="16" fill="#0D1929" rx="6"/>
+  <rect x="73"  y="349" width="66" height="10" fill="#091522" rx="4"/>
+  <rect x="158" y="346" width="72" height="16" fill="#0D1929" rx="6"/>
+  <rect x="161" y="349" width="66" height="10" fill="#091522" rx="4"/>
+
+  <!-- ─── BOTTOM LABEL ───────────────────────────────────── -->
+  <text x="150" y="384"
+        font-family="Courier New,monospace" font-size="10"
+        fill="#21262D" text-anchor="middle" letter-spacing="2">
+    PROP-IA  TEST-BOT  v1.0
+  </text>
+  <!-- Status LEDs -->
+  <circle cx="52"  cy="384" r="3" fill="#FF9800" opacity="0.5"/>
+  <circle cx="63"  cy="384" r="3" fill="#4CAF50" opacity="0.5"/>
+  <circle cx="237" cy="384" r="3" fill="#4CAF50" opacity="0.5"/>
+  <circle cx="248" cy="384" r="3" fill="#FF9800" opacity="0.5"/>
+
+</svg>

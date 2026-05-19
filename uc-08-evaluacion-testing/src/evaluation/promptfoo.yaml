@@ -1,0 +1,162 @@
+# Evaluación de UC-03 (Generador de Fichas) con Promptfoo.
+#
+# UC-03 expone POST /api/fichas/generar con body { propiedad, tone }
+# y devuelve { ficha: { titulo, descripcion, bullets }, tone }.
+#
+# Prerrequisito: UC-03 corriendo en localhost:3000
+#   cd uc-03-generador-fichas && npx tsx src/api.ts
+#
+# Correr:
+#   ANTHROPIC_API_KEY=... npx promptfoo eval -c src/evaluation/promptfoo.yaml
+#
+# Para red teaming automático (genera nuevos ataques):
+#   npx promptfoo redteam run
+
+description: "PropIA UC-03 — calidad y faithfulness de fichas generadas"
+
+providers:
+  - id: http
+    label: "UC-03 /api/fichas/generar"
+    config:
+      url: http://localhost:3000/api/fichas/generar
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        propiedad: "{{propiedad}}"
+        tone: "{{tone}}"
+      # Promptfoo extrae el campo de la respuesta para evaluar — anidamos a ficha.
+      transformResponse: "json.ficha"
+
+defaultTest:
+  options:
+    # Si el HTTP falla, Promptfoo nos lo dice como error de test (no como bypass silencioso)
+    transform: "JSON.stringify(output)"
+  assert:
+    # Estructura mínima común a todos los tonos
+    - type: is-json
+    - type: javascript
+      value: |
+        const f = JSON.parse(output);
+        return f && typeof f.titulo === 'string' && f.titulo.length > 5
+          && typeof f.descripcion === 'string' && f.descripcion.length > 50
+          && Array.isArray(f.bullets) && f.bullets.length >= 3;
+
+tests:
+  - description: "Apto El Poblado estrato 5 — tono lujo"
+    vars:
+      tone: "lujo"
+      propiedad:
+        id: "test-poblado-lujo"
+        tipo: "APARTAMENTO"
+        operacion: "VENTA"
+        estrato: 5
+        ubicacion:
+          barrio: "El Poblado"
+          ciudad: "Medellín"
+        areaM2: 95
+        habitaciones: 3
+        banos: 2
+        garajes: 1
+        piso: 8
+        antiguedadAnios: 4
+        caracteristicas: ["vista panorámica", "balcón amplio", "gimnasio del edificio"]
+        amoblado: false
+        esVIS: false
+        precio:
+          valor: 720000000
+          moneda: "COP"
+    assert:
+      # Estilo colombiano + tono apropiado al estrato
+      - type: llm-rubric
+        value: |
+          La ficha usa vocabulario inmobiliario colombiano correcto (apartamento, alcoba/habitación, estrato)
+          y tiene un tono premium/aspiracional acorde a un Estrato 5 en El Poblado.
+        threshold: 0.75
+      # Faithfulness — no debe inventar amenidades fuera de las listadas
+      - type: javascript
+        value: |
+          const f = JSON.parse(output);
+          const texto = (f.titulo + ' ' + f.descripcion + ' ' + f.bullets.join(' ')).toLowerCase();
+          // Esta propiedad NO tiene piscina, jacuzzi ni domótica — la ficha no debería inventarlas.
+          const inventos = ['piscina', 'jacuzzi', 'domótica', 'domotica', 'spa', 'wine cellar'];
+          const inventados = inventos.filter(w => texto.includes(w));
+          return inventados.length === 0 || { pass: false, score: 0, reason: `Inventó: ${inventados.join(', ')}` };
+
+  - description: "VIS Bosa estrato 2 — tono familiar"
+    vars:
+      tone: "familiar"
+      propiedad:
+        id: "test-bosa-vis"
+        tipo: "APARTAMENTO"
+        operacion: "VENTA"
+        estrato: 2
+        ubicacion:
+          barrio: "Bosa"
+          ciudad: "Bogotá"
+        areaM2: 55
+        habitaciones: 3
+        banos: 2
+        garajes: 0
+        antiguedadAnios: 1
+        caracteristicas: ["parques cercanos", "transporte público", "centro comercial cerca"]
+        amoblado: false
+        esVIS: true
+        precio:
+          valor: 178000000
+          moneda: "COP"
+    assert:
+      - type: llm-rubric
+        value: |
+          La ficha menciona que la propiedad aplica para subsidios VIS (Mi Casa Ya o similares),
+          usa tono accesible y cercano apropiado para compradores de primera vivienda,
+          y NO usa lenguaje aspiracional/lujoso impropio del estrato 2.
+        threshold: 0.75
+      # No inventar características de estrato alto
+      - type: javascript
+        value: |
+          const f = JSON.parse(output);
+          const texto = (f.titulo + ' ' + f.descripcion).toLowerCase();
+          const inventos = ['gimnasio', 'concierge', 'biometría', 'biometria', 'jacuzzi', 'sauna'];
+          const inventados = inventos.filter(w => texto.includes(w));
+          return inventados.length === 0 || { pass: false, score: 0, reason: `Inventó: ${inventados.join(', ')}` };
+
+  - description: "Apartaestudio Chapinero — tono inversor"
+    vars:
+      tone: "inversor"
+      propiedad:
+        id: "test-chapinero-inversor"
+        tipo: "APARTAESTUDIO"
+        operacion: "VENTA"
+        estrato: 3
+        ubicacion:
+          barrio: "Chapinero Central"
+          ciudad: "Bogotá"
+        areaM2: 32
+        habitaciones: 1
+        banos: 1
+        garajes: 0
+        antiguedadAnios: 6
+        caracteristicas: ["amoblado", "cerca de TransMilenio", "ideal estudiantes"]
+        amoblado: true
+        esVIS: false
+        precio:
+          valor: 215000000
+          moneda: "COP"
+    assert:
+      - type: llm-rubric
+        value: |
+          La ficha enfatiza retorno de inversión, canon potencial de arrendamiento (mensual)
+          o valorización del sector. Usa tono analítico, no aspiracional.
+        threshold: 0.75
+      # No prometer cifras específicas sin base (alucinación numérica)
+      - type: javascript
+        value: |
+          const f = JSON.parse(output);
+          const texto = (f.descripcion + ' ' + f.bullets.join(' '));
+          // Si menciona canon, no debería ser número específico sin caveat
+          const promesas = /(?:valorización|rentabilidad|retorno)\s+(?:del?\s+)?(\d{1,2})%/gi;
+          const matches = [...texto.matchAll(promesas)];
+          // Permitimos rangos o caveats; rechazamos número único con %
+          const malo = matches.filter(m => parseInt(m[1]) >= 10);
+          return malo.length === 0 || { pass: false, score: 0, reason: 'Prometió rentabilidad específica sin base' };

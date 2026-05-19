@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": [
+    "src/**/*.ts",
+    "../uc-01-busqueda-semantica/src/**/*.ts",
+    "../uc-03-generador-fichas/src/**/*.ts",
+    "../uc-04-valoracion-asistida/src/**/*.ts",
+    "../uc-05-agente-leads/src/**/*.ts",
+    "../uc-06-analisis-contratos/src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

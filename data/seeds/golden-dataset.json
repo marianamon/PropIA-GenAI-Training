@@ -1,0 +1,218 @@
+{
+  "version": "1.0.0",
+  "descripcion": "Golden dataset para evaluación de UC-01 (búsqueda semántica) y UC-02 (asistente conversacional). Cada par incluye la pregunta del usuario, los IDs de propiedades esperadas como relevantes, una respuesta ideal y los contextos que el RAG debería recuperar. Usado por RAGAS para faithfulness, answer_relevancy y context_precision.",
+  "preguntas": [
+    {
+      "id": "q-001",
+      "categoria": "busqueda-semantica",
+      "question": "Busco un apartamento tranquilo cerca del metro",
+      "expectedPropertyIds": ["prop-mde-001", "prop-mde-004", "prop-mde-005", "prop-mde-006"],
+      "idealAnswer": "Tengo varias propiedades cerca del Metro de Medellín en zonas tranquilas. El apartamento en Barrio Colombia (estrato 4, $290M) está a 5 minutos caminando de la estación Industriales. La casa familiar en Envigado (estrato 5, $720M) queda a 10 minutos de la estación Envigado. El apartamento de Laureles (estrato 5, $485M) está a 4 cuadras de la estación Floresta.",
+      "contexts": [
+        "prop-mde-001: vista panorámica, cerca metro, zona tranquila, pet-friendly, Barrio Colombia",
+        "prop-mde-004: jardín privado, zona tranquila, cerca metro, ideal familias, Envigado",
+        "prop-mde-005: balcón, vista al parque, cerca metro, zona caminable, Laureles"
+      ]
+    },
+    {
+      "id": "q-002",
+      "categoria": "busqueda-semantica",
+      "question": "Necesito un lugar pet-friendly con jardín para mis dos perros",
+      "expectedPropertyIds": ["prop-mde-004", "prop-bog-014"],
+      "idealAnswer": "Encontré dos propiedades pet-friendly con jardín ideales para tus perros. La casa en Envigado tiene jardín de 80m² con zona de BBQ y huerta, estrato 5, $720M COP. La casa en Cedritos (Bogotá) tiene jardín trasero de 60m² perfecto para mascotas, estrato 4, $615M COP. Ambas son explícitamente pet-friendly.",
+      "contexts": [
+        "prop-mde-004: jardín privado, zona BBQ, pet-friendly, ideal familias, Envigado",
+        "prop-bog-014: jardín, pet-friendly, home office, zona tranquila, Cedritos"
+      ]
+    },
+    {
+      "id": "q-003",
+      "categoria": "busqueda-semantica",
+      "question": "Apartamento para estudiante universitario, amoblado y cerca de la universidad",
+      "expectedPropertyIds": ["prop-mde-003", "prop-bog-013"],
+      "idealAnswer": "Tengo dos opciones para estudiantes. El apartaestudio en Aguacatala (Medellín) está a 3 cuadras de EAFIT, totalmente amoblado, $1.85M/mes con admin incluida. El apartaestudio en Chapinero Central (Bogotá) está a una cuadra de TransMilenio y a 10 minutos caminando de la Javeriana, amoblado, $1.65M/mes.",
+      "contexts": [
+        "prop-mde-003: amoblado, cerca universidad EAFIT, home office, wifi incluido, Aguacatala",
+        "prop-bog-013: amoblado, cerca universidad Javeriana, ideal estudiantes, Chapinero"
+      ]
+    },
+    {
+      "id": "q-004",
+      "categoria": "filtros-mixtos",
+      "question": "Algo de lujo con piscina y vista panorámica, presupuesto hasta $1500M",
+      "expectedPropertyIds": ["prop-mde-002", "prop-bog-016"],
+      "idealAnswer": "Tengo dos opciones de lujo. El penthouse en El Poblado tiene terraza privada con jacuzzi y vista 360° del Valle de Aburrá, $1.18B COP. El apartamento VIP en Rosales (Bogotá) tiene chimenea, terraza con asador y vista a los cerros, $1.45B COP. Ambos cuentan con piscina, gimnasio y portería con biometría o concierge.",
+      "contexts": [
+        "prop-mde-002: penthouse, vista 360, piscina climatizada, jacuzzi, El Poblado",
+        "prop-bog-016: lujo VIP, piscina, terraza, concierge, Rosales"
+      ]
+    },
+    {
+      "id": "q-005",
+      "categoria": "filtros-mixtos",
+      "question": "Quiero comprar mi primera vivienda con subsidio del gobierno",
+      "expectedPropertyIds": ["prop-mde-006", "prop-bog-017", "prop-bog-019"],
+      "idealAnswer": "Tienes tres opciones VIS con subsidio del gobierno disponible. El VIS Sabaneta de $195M aplica Mi Casa Ya y subsidio de Caja de Compensación, 3 habitaciones. El VIS Bosa de $178M aplica los mismos dos subsidios. El apartamento de Suba Compartir de $188M aplica subsidio Mi Casa Ya. Todos están en estrato 3.",
+      "contexts": [
+        "prop-mde-006: VIS, subsidio Mi Casa Ya, subsidio Caja Compensación, Sabaneta",
+        "prop-bog-017: VIS, subsidio Mi Casa Ya, subsidio Caja Compensación, Bosa",
+        "prop-bog-019: ideal primera vivienda, subsidio Mi Casa Ya, Suba"
+      ]
+    },
+    {
+      "id": "q-006",
+      "categoria": "busqueda-semantica",
+      "question": "Espacio para trabajar desde casa con buen internet",
+      "expectedPropertyIds": ["prop-mde-003", "prop-mde-007", "prop-bog-018"],
+      "idealAnswer": "Te recomiendo tres propiedades con buen espacio para home office. El apartaestudio de Aguacatala tiene escritorio dedicado y wifi de fibra incluido. El amoblado de El Poblado tiene wifi de alta velocidad. El apartamento de Quinta Camacho en Bogotá tiene estudio independiente. Todas son ideales para nómadas digitales o profesionales en remoto.",
+      "contexts": [
+        "prop-mde-003: home office, wifi incluido, coworking en edificio, amoblado",
+        "prop-mde-007: amoblado, wifi alta velocidad, ideal nómadas digitales, El Poblado",
+        "prop-bog-018: amoblado, estudio, espacio para trabajar desde casa, Quinta Camacho"
+      ]
+    },
+    {
+      "id": "q-007",
+      "categoria": "negocio-comercial",
+      "question": "Quiero abrir un café en zona con mucho turismo, presupuesto $10M en arriendo",
+      "expectedPropertyIds": ["prop-bog-020"],
+      "idealAnswer": "Tengo un local ideal: 65m² en la Zona T de Bogotá (Calle 82), edificio histórico restaurado con vitrina de 6 metros. Alto flujo peatonal de turistas y profesionales. Arriendo $9.5M COP + admin $850K. Pensado para café, restaurante o tienda boutique.",
+      "contexts": [
+        "prop-bog-020: local comercial, ideal café, zona turística, alto flujo peatonal, Zona T"
+      ]
+    },
+    {
+      "id": "q-008",
+      "categoria": "preferencias-familia",
+      "question": "Casa para familia con dos hijos, zona tranquila y arborizada",
+      "expectedPropertyIds": ["prop-mde-004", "prop-bog-014"],
+      "idealAnswer": "Hay dos casas ideales para familias. La casa en Envigado (Medellín) en sector tranquilo de El Esmeraldal, 4 habitaciones, jardín con BBQ, ideal niños y mascotas, $720M. La casa en Cedritos (Bogotá), barrio arborizado del norte, 3 pisos, 4 habitaciones, jardín y home office, $615M.",
+      "contexts": [
+        "prop-mde-004: ideal familias, zona tranquila, jardín, pet-friendly, Envigado",
+        "prop-bog-014: zona tranquila, zona arborizada, ideal familias, Cedritos"
+      ]
+    },
+    {
+      "id": "q-009",
+      "categoria": "presupuesto",
+      "question": "Apartamentos entre $400M y $600M en Medellín",
+      "expectedPropertyIds": ["prop-mde-005"],
+      "idealAnswer": "En ese rango de precio en Medellín tengo el apartamento de Laureles: $485M COP, 105m², 3 habitaciones, balcón con vista al parque, edificio con piscina y gimnasio. A 4 cuadras de la estación Floresta del Metro.",
+      "contexts": [
+        "prop-mde-005: 105m², 3 habitaciones, $485M, piscina, gimnasio, Laureles"
+      ]
+    },
+    {
+      "id": "q-010",
+      "categoria": "presupuesto",
+      "question": "Algo económico para invertir y arrendar después",
+      "expectedPropertyIds": ["prop-mde-009", "prop-bog-019"],
+      "idealAnswer": "Tengo dos opciones económicas ideales para inversión. El apartamento renovado en Belén Las Mercedes (Medellín, $245M, 2 habitaciones, ya tiene acabados modernos). El apartamento en Suba Compartir (Bogotá, $188M, 2 habitaciones). Ambos en estrato 3-4, bien ubicados para arriendo a estudiantes o jóvenes profesionales.",
+      "contexts": [
+        "prop-mde-009: renovado, ideal inversión, ideal parejas jóvenes, Belén",
+        "prop-bog-019: ideal primera vivienda, subsidio Mi Casa Ya, Suba"
+      ]
+    },
+    {
+      "id": "q-011",
+      "categoria": "ubicacion-especifica",
+      "question": "Algo en El Poblado, no me importa el precio",
+      "expectedPropertyIds": ["prop-mde-002", "prop-mde-007", "prop-mde-010"],
+      "idealAnswer": "En El Poblado tienes tres opciones diferentes. El penthouse en Cl. 10 con vista 360° y jacuzzi, $1.18B. El apartamento amoblado para arriendo corporativo de $4.5M/mes (95m², pet-friendly). La oficina corporativa en la Milla de Oro, 75m², arriendo $6.8M/mes.",
+      "contexts": [
+        "prop-mde-002: penthouse, El Poblado, lujo, Cra. 36 #10",
+        "prop-mde-007: amoblado, El Poblado, Cl. 10 #38",
+        "prop-mde-010: oficina, Milla de Oro, El Poblado"
+      ]
+    },
+    {
+      "id": "q-012",
+      "categoria": "ubicacion-especifica",
+      "question": "Apartamento en Chapinero o Usaquén con balcón",
+      "expectedPropertyIds": ["prop-bog-011", "prop-bog-012"],
+      "idealAnswer": "Tengo dos opciones. El apartamento en Chapinero Alto con balcón largo y vista a los cerros orientales, $565M. El apartamento de 145m² en Usaquén con terraza y vista al Country Club, $920M. Ambos en torres con buena dotación (gimnasio, piscina) y portería.",
+      "contexts": [
+        "prop-bog-011: balcón, vista a cerros, Chapinero Alto",
+        "prop-bog-012: terraza, vista al Country, Usaquén"
+      ]
+    },
+    {
+      "id": "q-013",
+      "categoria": "fuera-de-rango",
+      "question": "Casa de playa con vista al mar",
+      "expectedPropertyIds": [],
+      "idealAnswer": "Por el momento no tengo propiedades costeras en mi inventario. Las propiedades que manejo están en Medellín, Envigado, Rionegro y Bogotá. ¿Te puedo ayudar a buscar algo en estas ciudades?",
+      "contexts": []
+    },
+    {
+      "id": "q-014",
+      "categoria": "fuera-de-rango",
+      "question": "Finca cafetera en el Quindío",
+      "expectedPropertyIds": [],
+      "idealAnswer": "No tengo propiedades en el Eje Cafetero actualmente. Mi inventario es de Antioquia (Medellín, Envigado, Rionegro) y Cundinamarca (Bogotá). Si te interesa una propiedad campestre, tengo una casa en Llanogrande (Rionegro) con piscina y caballerizas.",
+      "contexts": []
+    },
+    {
+      "id": "q-015",
+      "categoria": "amenidades",
+      "question": "Edificio con piscina y gimnasio en Bogotá",
+      "expectedPropertyIds": ["prop-bog-012", "prop-bog-015", "prop-bog-016"],
+      "idealAnswer": "Tres opciones en Bogotá con piscina y gimnasio. Usaquén (estrato 6, $920M, piscina temperada). Salitre (estrato 4, $425M, vista al parque). Rosales VIP (estrato 6, $1.45B, spa incluido).",
+      "contexts": [
+        "prop-bog-012: piscina temperada, sauna, Usaquén",
+        "prop-bog-015: piscina, gimnasio, Salitre",
+        "prop-bog-016: piscina, spa, Rosales"
+      ]
+    },
+    {
+      "id": "q-016",
+      "categoria": "amenidades",
+      "question": "Apartamentos con vista panorámica",
+      "expectedPropertyIds": ["prop-mde-001", "prop-mde-002", "prop-bog-011", "prop-bog-012"],
+      "idealAnswer": "Cuatro propiedades con vista destacada. Barrio Colombia con vista al Valle de Aburrá. Penthouse de El Poblado con vista 360°. Chapinero Alto con vista a los cerros orientales. Usaquén con vista al Country Club.",
+      "contexts": [
+        "prop-mde-001: vista panorámica al Valle de Aburrá",
+        "prop-mde-002: vista 360, penthouse",
+        "prop-bog-011: vista a cerros orientales",
+        "prop-bog-012: vista al Country Club"
+      ]
+    },
+    {
+      "id": "q-017",
+      "categoria": "conversacional",
+      "question": "¿Cuál es la diferencia entre VIS y VIP?",
+      "expectedPropertyIds": [],
+      "idealAnswer": "VIS (Vivienda de Interés Social) es vivienda con tope de precio (~135 SMMLV, alrededor de $200M en 2025) y aplica para subsidios del gobierno como Mi Casa Ya. VIP (Vivienda de Interés Prioritario) tiene un tope aún menor (~90 SMMLV) y se enfoca en hogares de menores ingresos. Ninguna se relaciona con \"propiedad de lujo VIP\" que es un uso comercial del término.",
+      "contexts": []
+    },
+    {
+      "id": "q-018",
+      "categoria": "conversacional",
+      "question": "¿Qué es el estrato en Colombia?",
+      "expectedPropertyIds": [],
+      "idealAnswer": "El estrato socioeconómico es una clasificación oficial de 1 a 6 que se asigna a cada vivienda según el sector. Determina las tarifas de servicios públicos (energía, agua, gas) — los estratos 1-3 reciben subsidio, el 4 es neutro y los estratos 5-6 pagan más. También influye en el impuesto predial. No mide la calidad del inmueble en sí.",
+      "contexts": []
+    },
+    {
+      "id": "q-019",
+      "categoria": "preferencias-comprador",
+      "question": "Apartaestudio amoblado para nómada digital, máximo $2M de arriendo",
+      "expectedPropertyIds": ["prop-mde-003", "prop-bog-013"],
+      "idealAnswer": "Dentro de tu presupuesto tengo dos amoblados con wifi y zona de trabajo. Aguacatala (Medellín) $1.85M, ideal cerca de coworking. Chapinero (Bogotá) $1.65M, una cuadra de TransMilenio.",
+      "contexts": [
+        "prop-mde-003: amoblado, home office, wifi, $1.85M",
+        "prop-bog-013: amoblado, ideal estudiantes, $1.65M"
+      ]
+    },
+    {
+      "id": "q-020",
+      "categoria": "negocio-vendedor",
+      "question": "Tengo un apartamento de 80m² en Laureles para vender, ¿cuánto vale?",
+      "expectedPropertyIds": ["prop-mde-005"],
+      "idealAnswer": "Como referencia tengo en Laureles un apartamento de 105m² listado a $485M, es decir aproximadamente $4.62M por m². Para tu apartamento de 80m² eso sugeriría un rango de $360M-$400M dependiendo de antigüedad, piso y características. Para una valoración precisa necesitaría más datos del inmueble.",
+      "contexts": [
+        "prop-mde-005: Laureles, 105m², $485M, 3 habitaciones, edificio con piscina"
+      ]
+    }
+  ]
+}

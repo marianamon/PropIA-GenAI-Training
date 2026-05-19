@@ -1,0 +1,183 @@
+[
+  {
+    "id": "lead-001",
+    "propiedadId": "prop-mde-001",
+    "usuarioId": "user-valentina-001",
+    "agenteId": "agente-juanfe-001",
+    "estado": "NUEVO",
+    "canal": "WEB",
+    "mensaje": "Hola, me interesa este apartamento de Barrio Colombia. ¿Es posible visitarlo este fin de semana? También me gustaría saber si el precio incluye la administración.",
+    "notas": [],
+    "ultimoContacto": "2025-05-12T14:32:00Z",
+    "proximaAccion": "Responder mensaje inicial y agendar visita",
+    "creadoAt": "2025-05-12T14:32:00Z",
+    "nombreProspecto": "Valentina Ríos",
+    "telefonoProspecto": "+57 314 555 0102",
+    "emailProspecto": "valentina.rios@email.com"
+  },
+  {
+    "id": "lead-002",
+    "propiedadId": "prop-mde-002",
+    "usuarioId": "user-andres-001",
+    "agenteId": "agente-juanfe-001",
+    "estado": "CONTACTADO",
+    "canal": "WHATSAPP",
+    "mensaje": "Buenas tardes, vi el penthouse de El Poblado en Finca Raíz. Soy comprador serio, vendí mi apartamento la semana pasada. ¿Está disponible para visita el sábado?",
+    "notas": [
+      "2025-05-10: Llamada inicial. Comprador con liquidez ya hecha. Visita agendada sábado 17 a las 10am.",
+      "2025-05-11: Confirmé visita por WhatsApp. Va con su esposa."
+    ],
+    "ultimoContacto": "2025-05-11T18:00:00Z",
+    "proximaAccion": "Realizar visita programada sábado 17 mayo 10am",
+    "creadoAt": "2025-05-09T11:15:00Z",
+    "nombreProspecto": "Andrés Gutiérrez",
+    "telefonoProspecto": "+57 310 444 5566",
+    "emailProspecto": "agutierrez@email.com"
+  },
+  {
+    "id": "lead-003",
+    "propiedadId": "prop-mde-006",
+    "usuarioId": "user-laura-001",
+    "agenteId": "agente-juanfe-001",
+    "estado": "EN_VISITA",
+    "canal": "WHATSAPP",
+    "mensaje": "Necesito información del apartamento VIS de Sabaneta. ¿Aplico al subsidio Mi Casa Ya si gano 4 SMMLV?",
+    "notas": [
+      "2025-05-08: Le envié simulación de subsidio. Aplica por ingresos.",
+      "2025-05-10: Visita realizada. Le encantó el apartamento. Va a aplicar al subsidio esta semana.",
+      "2025-05-14: Documentos en proceso con Caja de Compensación."
+    ],
+    "ultimoContacto": "2025-05-14T16:20:00Z",
+    "proximaAccion": "Seguimiento documentos subsidio — llamar el lunes",
+    "creadoAt": "2025-05-06T09:00:00Z",
+    "nombreProspecto": "Laura Castaño",
+    "telefonoProspecto": "+57 320 777 8899"
+  },
+  {
+    "id": "lead-004",
+    "propiedadId": "prop-mde-005",
+    "usuarioId": "user-juan-001",
+    "agenteId": "agente-juanfe-001",
+    "estado": "EN_NEGOCIACION",
+    "canal": "REFERIDO",
+    "mensaje": "Soy el primo de tu cliente Carlos Mendoza, me recomendó hablar contigo sobre el apartamento de Laureles.",
+    "notas": [
+      "2025-04-28: Visita realizada. Cliente serio, le gustó mucho.",
+      "2025-05-02: Hizo oferta de $460M (-5%). Comuniqué al vendedor.",
+      "2025-05-05: Vendedor contraofertó $475M. Esperando respuesta del comprador.",
+      "2025-05-13: Comprador acepta $475M. Vamos a promesa esta semana."
+    ],
+    "ultimoContacto": "2025-05-13T17:00:00Z",
+    "proximaAccion": "Coordinar firma de promesa de compraventa con notaría",
+    "creadoAt": "2025-04-25T10:00:00Z",
+    "nombreProspecto": "Juan Camilo Vélez",
+    "telefonoProspecto": "+57 315 222 3344",
+    "emailProspecto": "jcvelez@email.com"
+  },
+  {
+    "id": "lead-005",
+    "propiedadId": "prop-bog-013",
+    "usuarioId": "user-maria-001",
+    "agenteId": "agente-federico-001",
+    "estado": "CERRADO_GANADO",
+    "canal": "WEB",
+    "mensaje": "Hola, busco un apartaestudio cerca de la Javeriana para empezar mi maestría en agosto. Vi este de Chapinero y me interesa.",
+    "notas": [
+      "2025-04-20: Visita virtual realizada (cliente está en Cali).",
+      "2025-04-22: Aprobó arrendamiento. Cliente viaja a Bogotá el 1 de mayo.",
+      "2025-04-28: Contrato firmado. Cliente entra el 1 de junio."
+    ],
+    "ultimoContacto": "2025-04-28T15:00:00Z",
+    "creadoAt": "2025-04-18T13:30:00Z",
+    "nombreProspecto": "María Alejandra Patiño",
+    "telefonoProspecto": "+57 311 666 7788",
+    "emailProspecto": "mapatino@email.com"
+  },
+  {
+    "id": "lead-006",
+    "propiedadId": "prop-bog-014",
+    "usuarioId": "user-roberto-001",
+    "agenteId": "agente-federico-001",
+    "estado": "INACTIVO",
+    "canal": "PORTALES_EXTERNOS",
+    "mensaje": "Información de la casa en Cedritos",
+    "notas": [
+      "2025-03-15: Envié información completa por email.",
+      "2025-03-18: No contesta llamadas ni mensajes.",
+      "2025-04-02: Último intento de contacto. Sin respuesta. Marcado como inactivo."
+    ],
+    "ultimoContacto": "2025-04-02T11:00:00Z",
+    "creadoAt": "2025-03-15T09:00:00Z",
+    "nombreProspecto": "Roberto Salinas",
+    "telefonoProspecto": "+57 313 999 0011"
+  },
+  {
+    "id": "lead-007",
+    "propiedadId": "prop-bog-011",
+    "usuarioId": "user-sara-001",
+    "agenteId": "agente-federico-001",
+    "estado": "CONTACTADO",
+    "canal": "EMAIL",
+    "mensaje": "Buenas, busco apartamento de 3 habitaciones en Chapinero o cercanías. Vi su listado y me interesa conocer más detalles del de Chapinero Alto.",
+    "notas": [
+      "2025-05-13: Respondí email con detalles completos y galería de fotos. Pendiente confirmar visita."
+    ],
+    "ultimoContacto": "2025-05-13T10:30:00Z",
+    "proximaAccion": "Confirmar visita esta semana — hacer follow-up el viernes",
+    "creadoAt": "2025-05-13T08:45:00Z",
+    "nombreProspecto": "Sara Mejía",
+    "telefonoProspecto": "+57 316 111 2233",
+    "emailProspecto": "saramejia@email.com"
+  },
+  {
+    "id": "lead-008",
+    "propiedadId": "prop-mde-007",
+    "usuarioId": "user-david-001",
+    "estado": "NUEVO",
+    "canal": "WHATSAPP",
+    "mensaje": "Hi, I'm relocating to Medellín from Toronto for a 6-month assignment with my company. Looking for furnished 2BR in Poblado. Pet-friendly is a must (I have a small dog).",
+    "notas": [],
+    "ultimoContacto": "2025-05-14T09:00:00Z",
+    "proximaAccion": "Responder en inglés. Confirmar fechas de llegada y permanencia.",
+    "creadoAt": "2025-05-14T09:00:00Z",
+    "nombreProspecto": "David Chen",
+    "telefonoProspecto": "+1 416 555 0199",
+    "emailProspecto": "dchen@email.com"
+  },
+  {
+    "id": "lead-009",
+    "propiedadId": "prop-bog-017",
+    "usuarioId": "user-pedro-001",
+    "estado": "NUEVO",
+    "canal": "LLAMADA",
+    "mensaje": "Llamé para preguntar por el apartamento VIS de Bosa. Quiero saber qué subsidios aplico siendo de Cafam.",
+    "notas": [
+      "2025-05-14: Llamada de 15 minutos. Cliente interesado en VIS Bosa. Ingresos: 2.5 SMMLV. Apela a Mi Casa Ya + Cafam. Va a juntar documentos."
+    ],
+    "ultimoContacto": "2025-05-14T11:45:00Z",
+    "proximaAccion": "Enviar checklist de documentos por WhatsApp",
+    "creadoAt": "2025-05-14T11:45:00Z",
+    "nombreProspecto": "Pedro Antonio Ramírez",
+    "telefonoProspecto": "+57 312 555 4321"
+  },
+  {
+    "id": "lead-010",
+    "propiedadId": "prop-mde-004",
+    "usuarioId": "user-claudia-001",
+    "agenteId": "agente-juanfe-001",
+    "estado": "CERRADO_PERDIDO",
+    "canal": "WEB",
+    "mensaje": "Casa familiar en Envigado — somos familia con 2 hijos y 2 perros. ¿Es realmente pet-friendly?",
+    "notas": [
+      "2025-04-10: Confirmé pet-friendly. Cliente agendó visita.",
+      "2025-04-13: Visita realizada. Familia interesada pero pedían rebaja del 12%.",
+      "2025-04-15: Vendedor no acepta rebaja superior al 5%. Cliente decidió esperar otra opción.",
+      "2025-04-20: Cliente compró en otra inmobiliaria."
+    ],
+    "ultimoContacto": "2025-04-20T16:00:00Z",
+    "creadoAt": "2025-04-09T14:00:00Z",
+    "nombreProspecto": "Claudia Restrepo",
+    "telefonoProspecto": "+57 318 444 5566",
+    "emailProspecto": "claudia.restrepo@email.com"
+  }
+]
